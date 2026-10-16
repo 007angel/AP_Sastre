@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #f9fafb;
+  color: #111827;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Tablas: scroll horizontal suave en pantallas pequeñas */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Inputs numéricos: evitar spinners gigantes */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Scrollbar discreta en paneles internos */
+.max-h-\[600px\]::-webkit-scrollbar,
+.max-h-\[90vh\]::-webkit-scrollbar {
+  width: 8px;
+}
+.max-h-\[600px\]::-webkit-scrollbar-thumb,
+.max-h-\[90vh\]::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
