@@ -18,7 +18,7 @@ const handleAuth = (data) => {
 export const apiService = {
   async post(data) {
     try {
-      const response = await axios.post(GAS_URL, JSON.stringify({ ...data, pin: getPin() }), {
+      const response = await axios.post(GAS_URL, JSON.stringify({ ...data, pin: data.pin ?? getPin() }), {
         headers: {
           'Content-Type': 'text/plain;charset=utf-8',
         },
