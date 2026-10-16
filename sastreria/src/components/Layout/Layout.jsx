@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Menu, X, Home, FilePlus, List, Users, BarChart3 } from 'lucide-react';
+import { Menu, X, Home, FilePlus, List, Users, BarChart3, LogOut } from 'lucide-react';
 
-const Layout = () => {
+const Layout = ({ onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
@@ -48,6 +48,15 @@ const Layout = () => {
             );
           })}
         </nav>
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
+          <button
+            onClick={onLogout}
+            className="flex items-center w-full px-2 py-2 text-gray-600 hover:text-red-600 transition-colors"
+          >
+            <LogOut size={20} className="mr-3" />
+            Salir
+          </button>
+        </div>
       </div>
 
       {sidebarOpen && (

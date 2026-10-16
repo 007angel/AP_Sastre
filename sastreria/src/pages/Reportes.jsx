@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiService, actions } from '../services/api';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, formatDateTime } from '../utils/format';
 import { BarChart3, Download, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -10,9 +10,11 @@ const Reportes = () => {
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
   const [reportData, setReportData] = useState(null);
+  const [auditoria, setAuditoria] = useState([]);
 
   useEffect(() => {
     fetchPedidos();
+    fetchAuditoria();
   }, []);
 
   useEffect(() => {
@@ -30,6 +32,17 @@ const Reportes = () => {
       toast.error('Error al cargar reportes');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAuditoria = async () => {
+    try {
+      const response = await apiService.post({ action: actions.GET_AUDITORIA });
+      if (response.success) {
+        setAuditoria(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error al cargar auditoría');
     }
   };
 
@@ -59,19 +72,26 @@ const Reportes = () => {
       const estado = p.Estado || 'Sin estado';
       if (porEstado[estado] !== undefined) porEstado[estado]++;
       else porEstado[estado] = (porEstado[estado] || 0) + 1;
-      const prenda = p.Tipo_Prenda || 'Otros';
-      porPrenda[prenda] = (porPrenda[prenda] || 0) + 1;
+      if (p.items && p.items.length) {
+        p.items.forEach((it) => {
+          const prenda = it.Tipo_Prenda || 'Otros';
+          porPrenda[prenda] = (porPrenda[prenda] || 0) + (parseInt(it.Cantidad, 10) || 0);
+        });
+      } else {
+        const prenda = p.Tipo_Prenda || 'Otros';
+        porPrenda[prenda] = (porPrenda[prenda] || 0) + 1;
+      }
     });
     setReportData({ totalPedidos, totalMontos, totalAbonos, totalSaldos, porEstado, porPrenda, filtered });
   };
 
   const exportCSV = () => {
     if (!reportData) return;
-    const headers = ['ID_Pedido,Nombre_Completo,Fecha_Registro,Fecha_Entrega,Tipo_Prenda,Descripcion,Monto_Total,Abono_Inicial,Saldo_Pendiente,Estado,Motivo_Anulacion,URL_Fotografia'];
+    const headers = ['ID_Pedido,Nombre_Completo,Telefono,Fecha_Registro,Fecha_Entrega,Tipo_Prenda,Descripcion,Monto_Total,Abono_Inicial,Saldo_Pendiente,Estado,Motivo_Anulacion,URL_Fotografia'];
     const rows = reportData.filtered.map(p => {
       const desc = (p.Descripcion || '').replace(/,/g, ';').replace(/\n/g, ' ');
       const motivo = (p.Motivo_Anulacion || '').replace(/,/g, ';').replace(/\n/g, ' ');
-      return `${p.ID_Pedido},"${p.Nombre_Completo}",${p.Fecha_Registro},${p.Fecha_Entrega},"${p.Tipo_Prenda}","${desc}",${p.Monto_Total},${p.Abono_Inicial},${p.Saldo_Pendiente},"${p.Estado}","${motivo}","${p.URL_Fotografia || ''}"`;
+      return `${p.ID_Pedido},"${p.Nombre_Completo}","${p.Telefono || ''}",${p.Fecha_Registro},${p.Fecha_Entrega},"${p.Tipo_Prenda}","${desc}",${p.Monto_Total},${p.Abono_Inicial},${p.Saldo_Pendiente},"${p.Estado}","${motivo}","${p.URL_Fotografia || ''}"`;
     });
     const csv = [headers, ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -135,7 +155,7 @@ const Reportes = () => {
           ))}
         </div>
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Por Tipo de Prenda</h2>
+          <h2 className="text-lg font-semibold mb-4">Por Tipo de Prenda (unidades)</h2>
           {reportData && Object.entries(reportData.porPrenda).map(([prenda, count]) => (
             <div key={prenda} className="flex justify-between py-2 border-b">
               <span>{prenda}</span>
@@ -143,6 +163,35 @@ const Reportes = () => {
             </div>
           ))}
         </div>
+      </div>
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <h2 className="text-lg font-semibold mb-4">Auditoría (últimos movimientos)</h2>
+        {auditoria.length === 0 ? (
+          <p className="text-sm text-gray-500">Sin movimientos registrados.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Acción</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Pedido</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Detalle</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {auditoria.map((a, idx) => (
+                  <tr key={idx}>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{formatDateTime(a.Fecha)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{a.Accion}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{a.ID_Pedido || '-'}</td>
+                    <td className="px-4 py-2 text-sm text-gray-500">{a.Detalle || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

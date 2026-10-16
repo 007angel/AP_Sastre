@@ -117,6 +117,8 @@ const Clientes = () => {
                       <div><p className="text-gray-600">Abono</p><p>{formatCurrency(p.Abono_Inicial)}</p></div>
                       <div><p className="text-gray-600">Saldo</p><p className="text-red-600">{formatCurrency(p.Saldo_Pendiente)}</p></div>
                     </div>
+                    {p.Telefono && <p className="text-sm text-gray-600 mt-2">Tel: {p.Telefono}</p>}
+                    {p.items && p.items.length > 0 && <p className="text-sm text-gray-600 mt-2">Prendas: {p.items.map((it) => `${it.Cantidad}x ${it.Tipo_Prenda} (${formatCurrency(it.Subtotal)})`).join(', ')}</p>}
                     {p.Descripcion && <p className="text-sm text-gray-600 mt-2">{p.Descripcion}</p>}
                     {(p.Estado || '').toLowerCase() === 'anulado' && p.Motivo_Anulacion && <p className="text-sm text-red-600 mt-2">Motivo de anulación: {p.Motivo_Anulacion}</p>}
                     {p.URL_Fotografia && <img src={p.URL_Fotografia} alt="Foto" className="mt-2 w-32 h-32 object-cover rounded-lg" />}

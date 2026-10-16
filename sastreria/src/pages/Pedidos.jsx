@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiService, actions } from '../services/api';
-import { formatCurrency, formatDate } from '../utils/format';
-import { Search, Eye, Edit, Ban, DollarSign, X } from 'lucide-react';
+import { formatCurrency, formatDate, buildWhatsAppUrl, buildReadyMessage } from '../utils/format';
+import { Search, Eye, Edit, Ban, DollarSign, X, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const estadoColors = {
@@ -62,7 +62,8 @@ const Pedidos = () => {
       filtered = filtered.filter(
         (p) =>
           p.ID_Pedido?.toString().toLowerCase().includes(term) ||
-          p.Nombre_Completo?.toLowerCase().includes(term)
+          p.Nombre_Completo?.toLowerCase().includes(term) ||
+          p.Telefono?.toString().toLowerCase().includes(term)
       );
     }
     if (estadoFilter) {
@@ -251,6 +252,7 @@ const Pedidos = () => {
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pedido #</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfono</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prenda</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Entrega</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto Total</th>
@@ -269,6 +271,7 @@ const Pedidos = () => {
                       <tr key={pedido.ID_Pedido} className={atrasado ? 'bg-red-50' : (esAnulado ? 'bg-gray-50' : '')}>
                         <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{pedido.ID_Pedido}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{pedido.Nombre_Completo}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{pedido.Telefono || '-'}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{pedido.Tipo_Prenda}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(pedido.Fecha_Entrega)}
@@ -299,6 +302,17 @@ const Pedidos = () => {
                               <button onClick={() => handleAnular(pedido)} className="text-red-600 hover:text-red-900" title="Anular">
                                 <Ban size={16} />
                               </button>
+                            )}
+                            {pedido.Telefono && (
+                              <a
+                                href={buildWhatsAppUrl(pedido.Telefono, buildReadyMessage(pedido))}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-green-600 hover:text-green-900"
+                                title="Notificar por WhatsApp"
+                              >
+                                <MessageCircle size={16} />
+                              </a>
                             )}
                           </div>
                         </td>
@@ -341,12 +355,38 @@ const Pedidos = () => {
                 <h3 className="font-semibold mb-4">Información General</h3>
                 <div className="space-y-3">
                   <div><span className="text-gray-600">Cliente:</span> <span className="font-medium">{selectedPedido.Nombre_Completo}</span></div>
+                  <div><span className="text-gray-600">Teléfono:</span> {selectedPedido.Telefono || 'N/A'}</div>
+                  {selectedPedido.Telefono && (
+                    <div>
+                      <a
+                        href={buildWhatsAppUrl(selectedPedido.Telefono, buildReadyMessage(selectedPedido))}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                      >
+                        <MessageCircle size={16} className="mr-2" />
+                        Notificar por WhatsApp
+                      </a>
+                    </div>
+                  )}
                   <div><span className="text-gray-600">Fecha Registro:</span> {formatDate(selectedPedido.Fecha_Registro)}</div>
                   <div><span className="text-gray-600">Fecha Entrega:</span> {formatDate(selectedPedido.Fecha_Entrega)}</div>
                   <div><span className="text-gray-600">Última Actualización:</span> {formatDate(selectedPedido.Ultima_Actualizacion)}</div>
                   <div><span className="text-gray-600">Tipo de Prenda:</span> {selectedPedido.Tipo_Prenda}</div>
                   <div><span className="text-gray-600">Estado:</span> {selectedPedido.Estado}</div>
                   <div className="md:col-span-2"><span className="text-gray-600">Descripción:</span> {selectedPedido.Descripcion || 'N/A'}</div>
+                  {selectedPedido.items && selectedPedido.items.length > 0 && (
+                    <div className="md:col-span-2">
+                      <span className="text-gray-600">Detalle de prendas:</span>
+                      <ul className="mt-1 space-y-1">
+                        {selectedPedido.items.map((it, idx) => (
+                          <li key={idx} className="text-sm text-gray-800">
+                            {it.Cantidad}x {it.Tipo_Prenda} — {formatCurrency(it.Precio_Unitario)} c/u = <span className="font-medium">{formatCurrency(it.Subtotal)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {(selectedPedido.Estado || '').toLowerCase() === 'anulado' && (
                     <div className="md:col-span-2"><span className="text-gray-600">Motivo de anulación:</span> <span className="font-medium text-red-600">{selectedPedido.Motivo_Anulacion || 'N/A'}</span></div>
                   )}

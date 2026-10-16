@@ -3,10 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { apiService, actions } from '../services/api';
 import toast from 'react-hot-toast';
 import { Upload, X, Camera } from 'lucide-react';
+import PrendasDetalle, { calcTotal } from '../components/PrendasDetalle';
 
-const prendaOptions = [
-  'Pantalón', 'Camisa', 'Traje', 'Vestido', 'Saco', 'Uniforme', 'Reparación', 'Otros'
-];
 const estadoOptions = ['Pendiente', 'En proceso', 'Listo para entregar', 'Entregado', 'Anulado'];
 
 const EditarPedido = () => {
@@ -21,13 +19,15 @@ const EditarPedido = () => {
   const [formData, setFormData] = useState({
     nombreCompleto: '',
     fechaEntrega: '',
-    tipoPrenda: 'Pantalón',
     descripcion: '',
-    montoTotal: '',
     abonoInicial: '',
     estado: 'Pendiente',
     motivoAnulacion: '',
+    telefono: '',
   });
+  const [items, setItems] = useState([
+    { tipoPrenda: 'Pantalón', cantidad: 1, precioUnitario: '' },
+  ]);
 
   useEffect(() => {
     fetchPedido();
@@ -45,13 +45,25 @@ const EditarPedido = () => {
         setFormData({
           nombreCompleto: p.Nombre_Completo || '',
           fechaEntrega: p.Fecha_Entrega || '',
-          tipoPrenda: p.Tipo_Prenda || 'Pantalón',
           descripcion: p.Descripcion || '',
-          montoTotal: p.Monto_Total || '',
           abonoInicial: p.Abono_Inicial || '',
           estado: p.Estado || 'Pendiente',
           motivoAnulacion: p.Motivo_Anulacion || '',
+          telefono: p.Telefono || '',
         });
+        if (p.items && p.items.length) {
+          setItems(p.items.map((it) => ({
+            tipoPrenda: it.Tipo_Prenda || 'Pantalón',
+            cantidad: it.Cantidad || 1,
+            precioUnitario: it.Precio_Unitario || '',
+          })));
+        } else {
+          setItems([{
+            tipoPrenda: p.Tipo_Prenda || 'Pantalón',
+            cantidad: 1,
+            precioUnitario: p.Monto_Total || '',
+          }]);
+        }
         setCurrentPhotoUrl(p.URL_Fotografia || '');
         if (p.URL_Fotografia) {
           setPhotoPreview(p.URL_Fotografia);
@@ -98,11 +110,39 @@ const EditarPedido = () => {
     }
   };
 
+  const calculateTotal = () => calcTotal(items);
+
   const calculateSaldo = () => {
-    const monto = parseFloat(formData.montoTotal) || 0;
+    const monto = calculateTotal();
     const abono = parseFloat(formData.abonoInicial) || 0;
     const saldo = monto - abono;
     return saldo > 0 ? saldo : 0;
+  };
+
+  const validateItems = () => {
+    if (!items.length) {
+      toast.error('Debe agregar al menos una prenda');
+      return false;
+    }
+    for (const it of items) {
+      if (!it.tipoPrenda) {
+        toast.error('Cada prenda debe tener un tipo');
+        return false;
+      }
+      if (!parseInt(it.cantidad, 10) || parseInt(it.cantidad, 10) < 1) {
+        toast.error('La cantidad debe ser al menos 1 en cada prenda');
+        return false;
+      }
+      if (it.precioUnitario === '' || isNaN(parseFloat(it.precioUnitario)) || parseFloat(it.precioUnitario) < 0) {
+        toast.error('El precio debe ser cero o mayor en cada prenda');
+        return false;
+      }
+    }
+    if (calculateTotal() <= 0) {
+      toast.error('El monto total debe ser mayor a 0');
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async (e) => {
@@ -115,12 +155,15 @@ const EditarPedido = () => {
       toast.error('La fecha de entrega es obligatoria');
       return;
     }
-    if (!formData.montoTotal || parseFloat(formData.montoTotal) <= 0) {
-      toast.error('El monto total debe ser mayor a 0');
+    if (!validateItems()) {
       return;
     }
     if (parseFloat(formData.abonoInicial || 0) < 0) {
       toast.error('El abono inicial no puede ser negativo');
+      return;
+    }
+    if (parseFloat(formData.abonoInicial || 0) > calculateTotal()) {
+      toast.error('El abono registrado supera el nuevo total del pedido');
       return;
     }
     if (formData.estado === 'Anulado' && !formData.motivoAnulacion.trim()) {
@@ -147,6 +190,7 @@ const EditarPedido = () => {
         }
         photoUrl = uploadResponse.url;
       }
+      const total = calculateTotal();
       const saldo = calculateSaldo();
       const response = await apiService.post({
         action: actions.UPDATE_PEDIDO,
@@ -154,14 +198,19 @@ const EditarPedido = () => {
         pedido: {
           nombreCompleto: formData.nombreCompleto,
           fechaEntrega: formData.fechaEntrega,
-          tipoPrenda: formData.tipoPrenda,
           descripcion: formData.descripcion,
-          montoTotal: parseFloat(formData.montoTotal),
+          items: items.map((it) => ({
+            tipoPrenda: it.tipoPrenda,
+            cantidad: parseInt(it.cantidad, 10),
+            precioUnitario: parseFloat(it.precioUnitario),
+          })),
+          montoTotal: total,
           abonoInicial: parseFloat(formData.abonoInicial || 0),
           saldoPendiente: saldo,
           urlFotografia: photoUrl,
           estado: formData.estado,
           motivoAnulacion: formData.estado === 'Anulado' ? formData.motivoAnulacion.trim() : '',
+          telefono: formData.telefono.trim(),
         },
       });
       if (response.success) {
@@ -191,22 +240,22 @@ const EditarPedido = () => {
             <input type="text" name="nombreCompleto" value={formData.nombreCompleto} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" />
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono del cliente</label>
+            <input type="tel" name="telefono" value={formData.telefono} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" placeholder="Ej. 5555-1234" />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Fecha de entrega *</label>
             <input type="date" name="fechaEntrega" value={formData.fechaEntrega} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de prenda *</label>
-            <select name="tipoPrenda" value={formData.tipoPrenda} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg">
-              {prendaOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-          </div>
+          <PrendasDetalle items={items} onChange={setItems} />
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">Descripción del trabajo</label>
             <textarea name="descripcion" value={formData.descripcion} onChange={handleChange} rows="3" className="w-full px-4 py-2 border rounded-lg" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Monto total (GTQ) *</label>
-            <input type="number" step="0.01" min="0" name="montoTotal" value={formData.montoTotal} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg" />
+            <label className="block text-sm font-medium text-gray-700 mb-2">Monto total (GTQ)</label>
+            <input type="text" value={calculateTotal().toFixed(2)} readOnly className="w-full px-4 py-2 border rounded-lg bg-gray-100" />
+            <p className="text-xs text-gray-500 mt-1">Calculado automáticamente desde las prendas.</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Abono inicial (GTQ)</label>

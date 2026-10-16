@@ -59,6 +59,7 @@ function addAbono(pedidoId, montoAbono, observaciones) {
 
     let msg = 'Abono registrado correctamente';
     if (nuevoEstado) msg += '. Pedido marcado como Entregado';
+    logAuditoria('ABONO', pedidoId, monto.toFixed(2));
     return { success: true, message: msg, nuevoSaldo: nuevoSaldo.toFixed(2), nuevoEstado: nuevoEstado };
   } catch (error) {
     return { success: false, message: error.toString() };
